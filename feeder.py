@@ -5,7 +5,9 @@
 
 import sys
 import json
+
 import importer
+from util import eprint
 # TODO удалить:
 from pprint import pprint
 
@@ -17,6 +19,10 @@ from pprint import pprint
 #	"av_detects": ["...", ],
 #	"threat_level": "..."	
 #}
+
+etda_synonyms = ['meta', 'synonyms']
+etda_type     = ['meta', 'type']
+
 def main():
     feed = []
 
@@ -26,18 +32,21 @@ def main():
         eprint('[-] Ошибка получения данных с MalwareBazaar.')
         exit(-1)
 
-    pprint(bazaar_list)
-
     for bzentry in bazaar_list:
         feed_entry = dict()
-        name = bzentry['signature']
 
         feed_entry['md5']    = bzentry['md5_hash']
         feed_entry['sha256'] = bzentry['sha256_hash']
-        feed_entry['malware_class'] = list(importer.query_etda(name))
         # совмещение данных из поля signature (MalwareBazaar) и данных из APT ETDA
-        feed_entry['malware_family'] = name
+        #feed_entry['malware_class'] = importer.query_etda(bzentry['signature'], etda_type)
+        #feed_entry['malware_family'] = [bzentry['signature']] + importer.query_etda(name, etda_synonyms)
+        feed_entry['av_detects'] = importer.get_virustotal_scans(bzentry['md5_hash'])
+        #feed_entry['threat_level']
+        pprint(feed_entry)
+        
+        feed.append(feed_entry)
 
 
 if __name__ == '__main__':
     main()
+
