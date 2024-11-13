@@ -34,14 +34,16 @@ def main():
 
     for bzentry in bazaar_list:
         feed_entry = dict()
+        name = bzentry['signature']
+        #pprint(bzentry)
 
         feed_entry['md5']    = bzentry['md5_hash']
         feed_entry['sha256'] = bzentry['sha256_hash']
         # совмещение данных из поля signature (MalwareBazaar) и данных из APT ETDA
-        #feed_entry['malware_class'] = importer.query_etda(bzentry['signature'], etda_type)
-        #feed_entry['malware_family'] = [bzentry['signature']] + importer.query_etda(name, etda_synonyms)
+        feed_entry['malware_class'] = [importer.get_malware_class(n) for n in importer.query_etda(name, etda_type)]
+        feed_entry['malware_family'] = [name] + importer.query_etda(name, etda_synonyms)
         feed_entry['av_detects'] = importer.get_virustotal_scans(bzentry['md5_hash'])
-        #feed_entry['threat_level']
+        feed_entry['threat_level'] = analytics.calculate_threat(feed_entry['malware_class'])
         pprint(feed_entry)
         
         feed.append(feed_entry)

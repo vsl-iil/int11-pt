@@ -3,9 +3,10 @@
 #
 # Львов Е.С., 2024
 import requests
+import json
 import os
 import time
-from pymisp import PyMISP
+#from pymisp import PyMISP
 from dotenv import load_dotenv
 
 from util import eprint
@@ -39,12 +40,28 @@ def query_bazaar():
 
 # Получить доп.данные о вредоносе из MISP-базы APT ETDA по имени
 def query_etda(name, jsonpath):
-    misp = PyMISP('https://apt.etda.or.th/cgi-bin/getmisp.cgi?o=t', '-', '')
-    result = misp.search(value=name, searchall=True, pythonify=True)
+    #misp = PyMISP('https://apt.etda.or.th/cgi-bin/getmisp.cgi?o=t', '-', '')
+    #result = misp.search(value=name, searchall=True, pythonify=True)
+    etda = ""
+    if not os.path.isfile('etda.json'):
+        with open('etda.json', 'w', encoding='utf-8') as f:
+            etda = requests.get('https://apt.etda.or.th/cgi-bin/getmisp.cgi?o=t').text
+            f.write(etda)
+    else:
+        with open('etda.json', 'r', encoding='utf-8') as f:
+            etda = f.read()
+
+    response = json.loads(etda)['values']
+
+    result = None
+    for obj in response:
+        if obj['value'] == name or 'synonyms' in obj and name in obj['synonyms']:
+            result = obj
+            break
 
     if not result:
         eprint(f'[!] "{name}" не найдено в базе APT ETDA; дополнительная информация по категории недоступна')
-        return None
+        return []
 
     for field in jsonpath:
         result = result[field]
@@ -91,3 +108,45 @@ def get_virustotal_scans(filehash):
 
     return list(result)
 
+# Принимает тип вредоносного ПО, заданный в ETDA, и транслирует термин
+# в один из терминов, определённых в документе "Описание классов ВПО"
+# при помощи ручного маппинга с наиболее близкими терминами.
+# Список типов, используемых ETDA, взят из кода страницы поиска:
+# https://apt.etda.or.th/cgi-bin/aptsearch.cgi
+def get_malware_class(etda_class):
+    mapping = {
+        "0-day": "Exploit",
+        "ATM malware": "Trojan-Banker",
+        "Auto updater": "Downloader",   # очень странный тип, имеющийся только у одного 
+                                        # нежелательного ПО, обозначенного `malware` в 
+                                        # APT ETDA: https://apt.etda.or.th/cgi-bin/listgroups.cgi?t=AdobeARM
+        "Backdoor": "Backdoor",
+        "Banking trojan": "Trojan-Banker",
+        "Big Game Hunting": "Trojan",         # не столько тип малвари, сколько способ использования
+        "Botnet": "Trojan-DDoS",
+        #"Compression": "",              # Ещё одно странное назначение: 
+                                        # https://apt.etda.or.th/cgi-bin/listgroups.cgi?t=zl4vq%2Esqt
+        "Control panel": "Hacktool",
+        "Credential stealer": "Trojan-PSW",
+        "DDoS": "Trojan-DDoS",
+        "Downloader": "Trojan-Downloader",
+        "Dropper": "Trojan-Dropper",
+        "Exfiltration": "Trojan",             # ???
+        "ICS malware": "Trojan",              # Industrial COntrol System
+        "Info stealer": "Trojan-PSW",
+        "Keylogger": "Trojan-Spy",
+        "Loader": "",
+        "Miner": "",
+        "POS malware": "",
+        "Poisoning": "",
+        "Ransomware": "",
+        "Reconnaissance": "",
+        "Remote command": "",
+        "Rootkit": "",
+        "SWIFT malware": "",
+        "Tunneling": "",
+        "Vulnerability scanner": "HackTool",
+        "Wiper": "",
+        "Worm": "Worm",
+    }
+    return mapping[etda_class]
