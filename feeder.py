@@ -5,9 +5,11 @@
 
 import sys
 import json
+import logging
 
 import importer
 from util import eprint
+import analytics
 # TODO удалить:
 from pprint import pprint
 
@@ -24,12 +26,14 @@ etda_synonyms = ['meta', 'synonyms']
 etda_type     = ['meta', 'type']
 
 def main():
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s')
+
     feed = []
 
     # Получаем основные данные с MalwareBazaar (последние 100 записей)
     bazaar_list = importer.query_bazaar()
     if not bazaar_list:
-        eprint('[-] Ошибка получения данных с MalwareBazaar.')
+        logging.error('Ошибка получения данных с MalwareBazaar.')
         exit(-1)
 
     for bzentry in bazaar_list:
@@ -39,9 +43,22 @@ def main():
 
         feed_entry['md5']    = bzentry['md5_hash']
         feed_entry['sha256'] = bzentry['sha256_hash']
+
         # совмещение данных из поля signature (MalwareBazaar) и данных из APT ETDA
-        feed_entry['malware_class'] = [importer.get_malware_class(n) for n in importer.query_etda(name, etda_type)]
-        feed_entry['malware_family'] = [name] + importer.query_etda(name, etda_synonyms)
+        feed_entry['malware_class'] = []
+        feed_entry['malware_family'] = []
+        if name != None:
+            for etype in importer.query_etda(name, etda_type):
+                translated = importer.get_malware_class(etype)
+                if not translated: # None
+                    logging.warning('Неизвестный тип из ETDA: {etype}')
+                else:
+                    feed_entry['malware_class'].append(translated)
+
+            feed_entry['malware_family'] = [name] + importer.query_etda(name, etda_synonyms)
+        else:
+            logging.warning('Отсутствует signature для %s', feed_entry['md5'])
+
         feed_entry['av_detects'] = importer.get_virustotal_scans(bzentry['md5_hash'])
         feed_entry['threat_level'] = analytics.calculate_threat(feed_entry['malware_class'])
         pprint(feed_entry)

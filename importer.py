@@ -1,4 +1,4 @@
-# import.py
+# importer.py
 # Модуль импорта данных
 #
 # Львов Е.С., 2024
@@ -6,7 +6,7 @@ import requests
 import json
 import os
 import time
-#from pymisp import PyMISP
+import logging
 from dotenv import load_dotenv
 
 from util import eprint
@@ -29,11 +29,11 @@ def query_bazaar():
     r = requests.post('https://mb-api.abuse.ch/api/v1/', data=last100query)
     
     if r.status_code != 200:
-        eprint(f'[!] MalwareBazaar вернул статус {status}')
+        logging.warning('MalwareBazaar вернул статус %d', status)
         return None
 
     if status := r.json()['query_status'] != 'ok':
-        eprint(f'[!] MalwareBazaar вернул код {r.status_code}')
+        logging.warning('MalwareBazaar вернул код %d', r.status_code)
         return None
 
     return list(r.json()['data'])
@@ -60,7 +60,7 @@ def query_etda(name, jsonpath):
             break
 
     if not result:
-        eprint(f'[!] "{name}" не найдено в базе APT ETDA; дополнительная информация по категории недоступна')
+        logging.warning('"%s" не найдено в базе APT ETDA; дополнительная информация по категории недоступна', name)
         return []
 
     for field in jsonpath:
@@ -79,7 +79,7 @@ def query_virustotal(filehash, api_fun=None, method='get'):
     elif method == 'post':
         return requests.post(url, headers=virustotal_headers)
     else:
-        eprint(f'[!] query_virustotal: Метод "{method}" не поддерживается')
+        logging.error('query_virustotal: Метод "%s" не поддерживается', method)
         exit(-1)    # TODO заменить все exit на exception'ы?
 
 def get_virustotal_scans(filehash):
@@ -88,16 +88,16 @@ def get_virustotal_scans(filehash):
     if r.status_code == 404:
         r = query_virustotal(filehash, api_fun='analyse', method='post')
         if r.status_code != 200:
-            eprint(f'[!] Ошибка сканирования нового файла VirusTotal: {r.status_code}')
+            logging.warning('Ошибка сканирования нового файла VirusTotal: %d', r.status_code)
             return None
         
         r = query_virustotal(filehash)
 
         if r.status_code != 200:
-            eprint(f'[!] Ошибка VirusTotal: {r.status_code}')
+            logging.warning('Ошибка VirusTotal: %d', r.status_code)
             return None
     elif r.status_code == 400:
-        eprint(f'[!] Ошибка авторизации на VirusTotal: {r.status_code}')
+        logging.warning('Ошибка авторизации на VirusTotal: %d', r.status_code)
         return None
 
     # В наименованиях могут быть (и будут) повторы, поэтому set вместо списка
@@ -131,22 +131,27 @@ def get_malware_class(etda_class):
         "DDoS": "Trojan-DDoS",
         "Downloader": "Trojan-Downloader",
         "Dropper": "Trojan-Dropper",
-        "Exfiltration": "Trojan",             # ???
-        "ICS malware": "Trojan",              # Industrial COntrol System
+        "Exfiltration": "Trojan",
+        "ICS malware": "Trojan",              # Industrial Control System
         "Info stealer": "Trojan-PSW",
         "Keylogger": "Trojan-Spy",
-        "Loader": "",
-        "Miner": "",
-        "POS malware": "",
-        "Poisoning": "",
-        "Ransomware": "",
-        "Reconnaissance": "",
-        "Remote command": "",
-        "Rootkit": "",
-        "SWIFT malware": "",
-        "Tunneling": "",
+        "Loader": "Trojan-Dropper",           # Технически, может быть и Downloader 
+                                              # - понятие Loader довольно общее.
+        "Miner": "Trojan",
+        "POS malware": "Trojan-Banker",       # Point-of-sale malware - атакует платёжные 
+                                              # терминалы и кассы.
+        #"Poisoning": ""                      # Имеется в виду cache poisoning - помещение
+                                              # в кэш ложных данных, которые затем могут 
+                                              # использоваться легитимными процессами;
+                                              # пр. ARP poisoning, DNS poisoning
+        "Ransomware": "Trojan-Ransom",
+        "Reconnaissance": "Trojan-Spy",
+        "Remote command": "RemoteAdmin",
+        "Rootkit": "Rootkit",
+        "SWIFT malware": "Trojan-Banker",
+        "Tunneling": "Trojan-Proxy",
         "Vulnerability scanner": "HackTool",
-        "Wiper": "",
+        "Wiper": "Trojan",                    # Уничтожает данные.
         "Worm": "Worm",
     }
-    return mapping[etda_class]
+    return mapping.get(etda_class)          # None, если тип не найден в словаре
