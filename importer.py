@@ -40,8 +40,6 @@ def query_bazaar():
 
 # Получить доп.данные о вредоносе из MISP-базы APT ETDA по имени
 def query_etda(name, jsonpath):
-    #misp = PyMISP('https://apt.etda.or.th/cgi-bin/getmisp.cgi?o=t', '-', '')
-    #result = misp.search(value=name, searchall=True, pythonify=True)
     etda = ""
     if not os.path.isfile('etda.json'):
         with open('etda.json', 'w', encoding='utf-8') as f:
@@ -55,7 +53,7 @@ def query_etda(name, jsonpath):
 
     result = None
     for obj in response:
-        if obj['value'] == name or 'synonyms' in obj and name in obj['synonyms']:
+        if obj['value'] == name or 'synonyms' in obj['meta'] and name in obj['meta']['synonyms']:
             result = obj
             break
 
