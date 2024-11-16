@@ -62,7 +62,7 @@ def query_etda(name, jsonpath):
         return []
 
     for field in jsonpath:
-        result = result[field]
+        result = result.get(field)
 
     return list(result)
 

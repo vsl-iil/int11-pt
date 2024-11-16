@@ -10,6 +10,7 @@ import logging
 import importer
 from util import eprint
 import analytics
+import exporter
 # TODO удалить:
 from pprint import pprint
 
@@ -64,6 +65,7 @@ def main():
         pprint(feed_entry)
         
         feed.append(feed_entry)
+        exporter.export_to_jsonl('out.log', feed_entry)
 
 
 if __name__ == '__main__':
