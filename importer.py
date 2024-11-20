@@ -13,8 +13,6 @@ from dotenv import load_dotenv
 # и непредсказуемым (Stealc -> Stealer)
 #from Levenshtein import distance
 
-from util import eprint
-
 # Запросы
 last100query = {
     'query': 'get_recent',
