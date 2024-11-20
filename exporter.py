@@ -1,7 +1,7 @@
 import json
 
 def export_to_jsonl(filename, entry):
-    with open(filename, 'w') as f:
+    with open(filename, 'a') as f:
         line = json.dumps(entry)
-        f.write(line)
+        f.write(line+'\n')
         #print(line)

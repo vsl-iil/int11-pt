@@ -8,6 +8,10 @@ import os
 import time
 import logging
 from dotenv import load_dotenv
+# была попытка проводить нечёткий поиск по APT ETDA, чтобы находить соответствия 
+# вида LummaStealer -> Lumma Stealer, но такой подход показал себя крайне ненадёжным
+# и непредсказуемым (Stealc -> Stealer)
+#from Levenshtein import distance
 
 from util import eprint
 
@@ -53,7 +57,7 @@ def query_etda(name, jsonpath):
 
     result = None
     for obj in response:
-        if obj['value'] == name or 'synonyms' in obj['meta'] and name in obj['meta']['synonyms']:
+        if obj['value'] == name or 'synonyms' in obj['meta'] and name == obj['meta']['synonyms']:
             result = obj
             break
 
@@ -63,6 +67,10 @@ def query_etda(name, jsonpath):
 
     for field in jsonpath:
         result = result.get(field)
+
+    if not result:
+        logging.warning('"%s" не существует для этой записи в базе APT ETDA', ' > '.join(jsonpath))
+        return []
 
     return list(result)
 
@@ -93,6 +101,7 @@ def get_virustotal_scans(filehash):
 
         if r.status_code != 200:
             logging.warning('Ошибка VirusTotal: %d', r.status_code)
+            logging.debug('filehash = %s', filehash)
             return None
     elif r.status_code == 400:
         logging.warning('Ошибка авторизации на VirusTotal: %d', r.status_code)

@@ -22,9 +22,9 @@ def calculate_threat(malwareclass):
     for cl in malwareclass:
         if cl in low_threat:
             threat_level["low"] += 1
-        elif malwareclass in medium_threat:
+        elif cl in medium_threat:
             threat_level["medium"] += 1
-        elif malwareclass in high_threat:
+        elif cl in high_threat:
             threat_level["high"] += 1
 
     if max(threat_level.values()) == 0:
